@@ -2,6 +2,10 @@ mod model;
 mod persistence;
 mod cli;
 
-fn main() {
+use rusqlite::{Connection};
 
+
+fn main() {
+    cli::run::run()
 }
+

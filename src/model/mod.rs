@@ -1,2 +1,1 @@
-mod quote;
-mod user;
+pub mod quote;

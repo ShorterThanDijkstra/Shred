@@ -1,20 +1,20 @@
 use chrono::{DateTime, Utc};
-use crate::model::user::User;
 
+#[derive(Debug)]
 pub struct Quote {
-    pub date: DateTime<Utc>,
+    pub id: u64,
+    // pub date: Option<DateTime<Utc>>,
     pub word: String,
     pub content: String,
-    pub user_id: u64,
 }
 
 impl Quote {
-    pub fn create(user: &User, word: String, content: String) -> Self {
+    pub fn create(word: &str, content: &str) -> Self {
         Quote {
-            date: Utc::now(),
-            word,
-            content,
-            user_id: user.id,
+            id: 0,
+            // date: None,
+            word: word.to_string(),
+            content: content.to_string(),
         }
     }
 }
