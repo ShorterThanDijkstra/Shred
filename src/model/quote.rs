@@ -1,20 +1,20 @@
+use std::fmt::{Display, Formatter};
+
 use chrono::{DateTime, Utc};
 
-#[derive(Debug)]
 pub struct Quote {
     pub id: u64,
-    // pub date: Option<DateTime<Utc>>,
-    pub word: String,
     pub content: String,
+    pub note: String,
+    pub date: DateTime<Utc>,
 }
 
-impl Quote {
-    pub fn create(word: &str, content: &str) -> Self {
-        Quote {
-            id: 0,
-            // date: None,
-            word: word.to_string(),
-            content: content.to_string(),
+impl Display for Quote {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.note.is_empty() {
+            write!(f, "{}@{}: {}", self.id, self.date.date_naive(), self.content)
+        } else {
+            write!(f, "{}@{}: {} --{}", self.id, self.date.date_naive(), self.content, self.note)
         }
     }
 }
