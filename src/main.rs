@@ -1,5 +1,3 @@
-use rusqlite::Connection;
-
 mod model;
 mod persistence;
 mod cli;

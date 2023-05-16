@@ -1,10 +1,8 @@
 use io::{stdin, stdout};
 use std::io;
 use std::io::Write;
-use std::ops::Index;
 use std::process::exit;
 
-use crate::model::quote::Quote;
 use crate::persistence::shred_db::*;
 
 const PROMPT_OUT: &str = "=>";
@@ -21,11 +19,12 @@ fn prompt() {
 
 fn usage() {
     println!("{}\n", "Commands available from the prompt:");
-    println!("{:<32} {}", "<quote>", "save a quote");
-    println!("{:<32} {}", "<quote> //<note>", "save a quote with extra notes");
-    println!("{:<32} {}", ":?", "help");
-    println!("{:<32} {}", ":(l|list) [<number>]", "list quotes (with an optional number)");
-    println!("{:<32} {}", ":(q|quit)", "quit");
+    println!("{:<48} {}", "<quote>", "save a quote");
+    println!("{:<48} {}", ":?", "help");
+    println!("{:<48} {}", ":(l|list) [<number>]", "list quotes (with an optional number for limit)");
+    println!("{:<48} {}",":(e|edit) <id>", "edit a quote");
+    println!("{:<48} {}",":(d|delete) <id>", "delete a quote");
+    println!("{:<48} {}", ":(q|quit)", "quit");
 }
 
 fn eval_cmd(cmd_raw: &str, shred: &ShredDB) {
@@ -58,6 +57,37 @@ fn eval_cmd(cmd_raw: &str, shred: &ShredDB) {
         "q" | "quit" => {
             exit(0)
         }
+        "d" | "delete" => {
+            match split.len() {
+                2 => {
+                    if let Ok(num) = split[1].parse::<u64>()  {
+                        shred.delete(num);
+                        output(format!("deleted: {}", num).as_str())
+
+                    } else {
+                        usage()
+                    }
+                }
+                _ => {
+                    usage()
+                }
+            }
+        }
+        "e" | "edit" => {
+            match split.len() {
+                3 => {
+                    if let Ok(num) = split[1].parse::<u64>()  {
+                        shred.update(num, split[2]);
+                        output(format!("updated: {}", num).as_str())
+                    } else {
+                        usage()
+                    }
+                }
+                _ => {
+                    usage()
+                }
+            }
+        }
         "?" => {
             usage();
         }
@@ -79,9 +109,6 @@ fn eval(input: &str, shred: &ShredDB) {
                 1 => {
                     shred.insert_quote(split[0])
                 }
-                2 => {
-                    shred.insert_quote_with_note(split[0], split[1])
-                }
                 _ => {
                     usage()
                 }
@@ -98,7 +125,7 @@ pub fn repl() {
         prompt();
 
         let mut content = String::new();
-        stdin().read_line(&mut content).expect("Failed to read content");
+        stdin().read_line(&mut content).unwrap();
 
         eval(content.trim(), &shred);
     }

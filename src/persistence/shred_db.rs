@@ -1,12 +1,9 @@
-use std::fmt::format;
-
-use chrono::{DateTime, Utc};
+use dir::home_dir;
 use rusqlite::{Connection, Statement};
-use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 
 use crate::model::quote::Quote;
 
-const DB_FILE: &str = "shred.db";
+const DB_FILE: &str = ".local/share/shred/shred.db";
 
 pub struct ShredDB {
     conn: Connection,
@@ -17,61 +14,68 @@ fn create_table(conn: &Connection) {
         "CREATE TABLE IF NOT EXISTS quote (
             id        INTEGER PRIMARY KEY,
             content   TEXT NOT NULL,
-            note      TEXT DEFAULT \"\",
             date      DATETIME DEFAULT current_timestamp
            )",
         (),
-    ).expect("Failed to create table quote");
+    )
+    .unwrap();
 }
 
 fn query_quotes_stmt(mut stmt: Statement) -> Vec<Quote> {
-    let rows = stmt.query_map([], |row| {
-        Ok(Quote {
-            id: row.get(0)?,
-            content: row.get(1)?,
-            note: row.get(2)?,
-            date: row.get(3)?,
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(Quote {
+                id: row.get(0)?,
+                content: row.get(1)?,
+                date: row.get(2)?,
+            })
         })
-    }).expect("Failed to query quotes");
+        .unwrap();
     let mut res = Vec::new();
     for row in rows {
-        res.push(row.expect("Failed to query quotes"))
+        res.push(row.unwrap())
     }
     res
 }
 
 impl ShredDB {
     pub fn new() -> Self {
-        let conn = Connection::open(DB_FILE).expect("Failed to open database");
+        let path = format!("{}/{}", home_dir().unwrap().to_str().unwrap(), DB_FILE);
+        let conn = Connection::open(path).unwrap();
         create_table(&conn);
         ShredDB { conn }
     }
 
     pub fn insert_quote(&self, content: &str) {
-        self.conn.execute(
-            "INSERT INTO quote (content) VALUES (?1)",
-            (content.trim(), ),
-        ).expect("Failed to insert data into table quote");
+        self.conn
+            .execute("INSERT INTO quote (content) VALUES (?1)", (content.trim(),))
+            .unwrap();
     }
 
-    pub fn insert_quote_with_note(&self, content: &str, note: &str) {
-        self.conn.execute(
-            "INSERT INTO quote (content, note) VALUES (?1, ?2)",
-            (content.trim(), note.trim()),
-        ).expect("Failed to insert data into table quote");
-    }
     pub fn query_quotes_limit(&self, num: u64) -> Vec<Quote> {
-        let query = format!("{} {}", "SELECT id, content, note, date FROM quote ORDER BY date LIMIT", num);
-        let mut stmt = self.conn
-            .prepare(query.as_str())
-            .expect("Failed to prepare statement for query");
+        let query = format!(
+            "{} {}",
+            "SELECT id, content, date FROM quote ORDER BY date LIMIT", num
+        );
+        let stmt = self.conn.prepare(query.as_str()).unwrap();
         query_quotes_stmt(stmt)
     }
 
     pub fn query_quotes(&self) -> Vec<Quote> {
-        let mut stmt = self.conn
-            .prepare("SELECT id, content, note, date FROM quote ORDER BY date")
-            .expect("Failed to prepare statement for query");
+        let stmt = self
+            .conn
+            .prepare("SELECT id, content, date FROM quote ORDER BY date")
+            .unwrap();
         query_quotes_stmt(stmt)
+    }
+
+    pub fn delete(&self, id: u64) {
+        let sql = "DELETE FROM quote WHERE id = (?1)";
+        self.conn.execute(sql, (id,)).unwrap();
+    }
+
+    pub fn update(&self, id: u64, new_content: &str) {
+        let sql = "UPDATE quote SET content = (?1) WHERE id = (?2)";
+        self.conn.execute(sql, (new_content, id, )).unwrap();
     }
 }
