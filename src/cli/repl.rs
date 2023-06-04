@@ -4,6 +4,7 @@ use std::io::Write;
 use std::process::exit;
 
 use crate::persistence::shred_db::*;
+use crate::persistence::sqlite_db::*;
 
 const PROMPT_OUT: &str = "=>";
 const PROMPT_IN: &str = ">";
@@ -21,13 +22,16 @@ fn usage() {
     println!("{}\n", "Commands available from the prompt:");
     println!("{:<48} {}", "<quote>", "save a quote");
     println!("{:<48} {}", ":?", "help");
-    println!("{:<48} {}", ":(l|list) [<number>]", "list quotes (with an optional number for limit)");
-    println!("{:<48} {}",":(e|edit) <id>", "edit a quote");
-    println!("{:<48} {}",":(d|delete) <id>", "delete a quote");
+    println!(
+        "{:<48} {}",
+        ":(l|list) [<number>]", "list quotes (with an optional number for limit)"
+    );
+    println!("{:<48} {}", ":(e|edit) <id>", "edit a quote");
+    println!("{:<48} {}", ":(d|delete) <id>", "delete a quote");
     println!("{:<48} {}", ":(q|quit)", "quit");
 }
 
-fn eval_cmd(cmd_raw: &str, shred: &ShredDB) {
+fn eval_cmd(cmd_raw: &str, shred: &impl ShredDB) {
     let split: Vec<&str> = cmd_raw.split_whitespace().collect();
 
     if split.is_empty() {
@@ -35,58 +39,48 @@ fn eval_cmd(cmd_raw: &str, shred: &ShredDB) {
         return;
     }
     match split[0] {
-        "l" | "list" => {
-            match split.len() {
-                1 => {
-                    for quote in shred.query_quotes() {
+        "l" | "list" => match split.len() {
+            1 => {
+                for quote in shred.query_quotes() {
+                    output(format!("{}", quote).as_str())
+                }
+            }
+            2 => {
+                if let Ok(num) = split[1].parse::<u64>() {
+                    for quote in shred.query_quotes_limit(num) {
                         output(format!("{}", quote).as_str())
                     }
-                }
-                2 => {
-                    if let Ok(num) = split[1].parse::<u64>() {
-                        for quote in shred.query_quotes_limit(num) {
-                            output(format!("{}", quote).as_str())
-                        }
-                    } else { usage() }
-                }
-                _ => {
+                } else {
                     usage()
                 }
             }
-        }
-        "q" | "quit" => {
-            exit(0)
-        }
-        "d" | "delete" => {
-            match split.len() {
-                2 => {
-                    if let Ok(num) = split[1].parse::<u64>()  {
-                        shred.delete(num);
-                        output(format!("deleted: {}", num).as_str())
-
-                    } else {
-                        usage()
-                    }
-                }
-                _ => {
+            _ => usage(),
+        },
+        "q" | "quit" => exit(0),
+        "d" | "delete" => match split.len() {
+            2 => {
+                if let Ok(num) = split[1].parse::<u64>() {
+                    shred.delete(num);
+                    output(format!("deleted: {}", num).as_str())
+                } else {
                     usage()
                 }
             }
-        }
-        "e" | "edit" => {
-            match split.len() {
-                3 => {
-                    if let Ok(num) = split[1].parse::<u64>()  {
-                        shred.update(num, split[2]);
-                        output(format!("updated: {}", num).as_str())
-                    } else {
-                        usage()
-                    }
-                }
-                _ => {
+            _ => usage(),
+        },
+        "e" | "edit" => match split.len() {
+            3 => {
+                if let Ok(num) = split[1].parse::<u64>() {
+                    shred.update(num, split[2]);
+                    output(format!("updated: {}", num).as_str())
+                } else {
                     usage()
                 }
             }
+            _ => usage(),
+        },
+        "b" | "backup" => {
+            shred.backup()
         }
         "?" => {
             usage();
@@ -97,29 +91,23 @@ fn eval_cmd(cmd_raw: &str, shred: &ShredDB) {
     }
 }
 
-fn eval(input: &str, shred: &ShredDB) {
+fn eval(input: &str, shred: &impl ShredDB) {
     match input {
-        input if input.starts_with(":") => {
-            eval_cmd(&input[1..], shred)
-        }
+        input if input.starts_with(":") => eval_cmd(&input[1..], shred),
 
         input if !input.is_empty() => {
             let split: Vec<&str> = input.split("//").collect();
             match split.len() {
-                1 => {
-                    shred.insert_quote(split[0])
-                }
-                _ => {
-                    usage()
-                }
+                1 => shred.insert_quote(split[0]),
+                _ => usage(),
             }
         }
-        _ => { usage() }
+        _ => usage(),
     }
 }
 
 pub fn repl() {
-    let shred = ShredDB::new();
+    let shred = SQLiteDB::new();
 
     loop {
         prompt();

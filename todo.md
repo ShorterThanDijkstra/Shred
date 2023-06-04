@@ -1,8 +1,6 @@
-* backup database
 * anki
 * gui
-* browser
-* phone
+* android app
 * analysis
 * mdict
 * find sentences by word
